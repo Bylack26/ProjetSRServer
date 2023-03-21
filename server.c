@@ -1,9 +1,18 @@
 #include "csapp.h"
 
 #define MAX_NAME_LEN 256
+int nbProcess = 0;
 void echo(int connfd);
 
-handlerChild
+void handlerChild(int sig){
+    pid_t pid;
+    printf("Avant le kill : %d\n", nbProcess);
+    nbProcess--;
+    printf("Aprés le kill : %d\n", nbProcess);
+    while((pid = waitpid(-1, NULL, WNOHANG | WUNTRACED)) > 0){
+
+    }
+}
 
 
 
@@ -20,9 +29,11 @@ int main(int argc, char **argv)
     clientlen = (socklen_t)sizeof(clientaddr);
 
     listenfd = Open_listenfd(port);
+    Signal(SIGCHLD, handlerChild);
     while (1) {
         
         connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+        nbProcess ++;
         pid = Fork();
 
         if(pid == 0){
