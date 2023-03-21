@@ -2,8 +2,6 @@
 
 #define MAX_NAME_LEN 256
 
-void echo(int connfd);
-
 int main(int argc, char **argv)
 {
     int listenfd, connfd, port;
@@ -16,7 +14,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(0);
     }
-    port = atoi(argv[1]);
+    port = 2121;
     
     clientlen = (socklen_t)sizeof(clientaddr);
 
@@ -36,7 +34,6 @@ int main(int argc, char **argv)
         printf("server connected to %s (%s)\n", client_hostname,
                client_ip_string);
 
-        echo(connfd);
         Close(connfd);
     }
     exit(0);
