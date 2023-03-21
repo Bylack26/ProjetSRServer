@@ -9,12 +9,7 @@ int main(int argc, char **argv)
     struct sockaddr_in clientaddr;
     char client_ip_string[INET_ADDRSTRLEN];
     char client_hostname[MAX_NAME_LEN];
-    
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <port>\n", argv[0]);
-        exit(0);
-    }
-    port = 2121;
+    port = 1240;
     
     clientlen = (socklen_t)sizeof(clientaddr);
 
@@ -32,7 +27,7 @@ int main(int argc, char **argv)
                   INET_ADDRSTRLEN);
         
         printf("server connected to %s (%s)\n", client_hostname,
-               client_ip_string);
+               client_ip_string); 
 
         Close(connfd);
     }
