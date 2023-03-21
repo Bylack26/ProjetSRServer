@@ -3,6 +3,10 @@
 #define MAX_NAME_LEN 256
 void echo(int connfd);
 
+handlerChild
+
+
+
 int main(int argc, char **argv)
 {
     int listenfd, connfd, port;
@@ -37,6 +41,7 @@ int main(int argc, char **argv)
             exit(0);
         }else{
             Close(connfd);
+
         }
         
     }
