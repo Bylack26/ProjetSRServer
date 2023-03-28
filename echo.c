@@ -30,15 +30,13 @@ void taille(int connfd){
     fichier[n-1] = '\0';
 
     fprintf(stderr, "%sa\n", fichier);
-    FILE * f = Fopen(fichier, "r");
-    if(f == NULL){
-        printf("Fais chier\n");
-    }else{
-        fseek(f, 0, SEEK_END);
-        int dim = ftell(f);
-
-        Rio_writen(connfd, &dim, 4);
-    }
+    int f = open(fichier, (DEF_MODE) & ~(DEF_UMASK), "r");
+    struct stat * s = malloc(sizeof(struct stat));
+    Fstat(f, s);
+    printf("off_t %ld", s->st_size);
+    int dim = s->st_size;
+    Rio_writen(connfd, &dim, 4);
+    
 
 }
 
