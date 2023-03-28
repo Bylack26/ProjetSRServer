@@ -7,6 +7,7 @@
 pid_t tabpid[NBPROCMAX];
 
 void echo(int connfd);
+void taille(int connfd);
 
 void handlerChild(int sig){
     pid_t pid;
@@ -15,13 +16,7 @@ void handlerChild(int sig){
     }
 }
 void handlerINT(int sig){
-    int i = 0;
-    while(i < NBPROCMAX){
-        Kill(tabpid[i],SIGINT);
-        i++;
-    }
-    Kill(getpid(),SIGINT);
-
+    Kill(0,SIGKILL);
 }
 
 
@@ -50,6 +45,7 @@ int main(int argc, char **argv)
         }
     }
     if(pid != 0){
+        Close(listenfd);
         Signal(SIGINT, handlerINT);
         Signal(SIGCHLD, handlerChild);
     }
@@ -68,7 +64,7 @@ int main(int argc, char **argv)
             
             printf("server connected to %s (%s)\n", client_hostname,
                     client_ip_string); 
-            echo(connfd);
+            taille(connfd);
             Close(connfd);  
         }
     }

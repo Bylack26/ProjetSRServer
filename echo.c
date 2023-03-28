@@ -16,3 +16,28 @@ void echo(int connfd)
     }
 }
 
+void taille(int connfd){
+    rio_t rio;
+    char buf[MAXLINE] = {0};
+
+    Rio_readinitb(&rio, connfd);
+    size_t n = Rio_readlineb(&rio, buf, MAXLINE);
+    char fichier[n-1];
+
+    for(int i =0; i < n-1; i++){
+        fichier[i] = buf[i];
+    }
+
+    fprintf(stderr, "%sa\n", fichier);
+    FILE * f = Fopen(fichier, "r");
+    if(f == NULL){
+        printf("Fais chier\n");
+    }else{
+        fseek(f, 0, SEEK_END);
+        int dim = ftell(f);
+
+        Rio_writen(connfd, &dim, 4);
+    }
+
+}
+
