@@ -52,21 +52,20 @@ int main(int argc, char **argv)
 
     while (1) {
 
-        if(pid == 0){
-            connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen); // socket de communication
-            /* determine the name of the client */
-            Getnameinfo((SA *) &clientaddr, clientlen,
-                        client_hostname, MAX_NAME_LEN, 0, 0, 0);
-            
-            /* determine the textual representation of the client's IP address */
-            Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string,
-                        INET_ADDRSTRLEN);
-            
-            printf("server connected to %s (%s)\n", client_hostname,
-                    client_ip_string); 
-            taille(connfd);
-            Close(connfd);  
-        }
+        while((connfd = accept(listenfd, (SA *)&clientaddr, &clientlen)) < 0); // socket de communication
+        /* determine the name of the client */
+        Getnameinfo((SA *) &clientaddr, clientlen,
+                    client_hostname, MAX_NAME_LEN, 0, 0, 0);
+        
+        /* determine the textual representation of the client's IP address */
+        Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string,
+                    INET_ADDRSTRLEN);
+        
+        printf("server connected to %s (%s)\n", client_hostname,
+                client_ip_string); 
+        taille(connfd);
+
+        Close(connfd);  
     }
     exit(0);
     

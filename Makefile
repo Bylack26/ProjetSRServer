@@ -7,7 +7,7 @@
 #.PRECIOUS: %.o
 
 CC = gcc
-CFLAGS = -Wall -Werror
+CFLAGS = -Wall
 LDFLAGS =
 
 # Note: -lnsl does not seem to work on Mac OS but will
@@ -15,7 +15,7 @@ LDFLAGS =
 #LIBS += -lsocket -lnsl -lrt
 LIBS += -lpthread
 
-INCLUDE = csapp.h
+INCLUDE = csapp.h fixed_serv.h
 OBJS = csapp.o echo.o
 INCLDIR = -I.
 
@@ -33,4 +33,5 @@ all: $(PROGS)
 	
 clean:
 	rm -f $(PROGS) *.o
+	rm -f ./DirClient/*
 
