@@ -18,15 +18,16 @@ void echo(int connfd)
 
 void taille(int connfd){
     rio_t rio;
-    char buf[MAXLINE] = {0};
+    char * buf = (char *)calloc(MAXLINE,sizeof(char));
 
     Rio_readinitb(&rio, connfd);
     size_t n = Rio_readlineb(&rio, buf, MAXLINE);
-    char fichier[n-1];
+    char fichier[n];
 
     for(int i =0; i < n-1; i++){
         fichier[i] = buf[i];
     }
+    fichier[n-1] = '\0';
 
     fprintf(stderr, "%sa\n", fichier);
     FILE * f = Fopen(fichier, "r");
