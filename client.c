@@ -44,6 +44,7 @@ int main(int argc, char **argv){
     int clientfd, port;
     char *host, buf[MAXLINE];    
     char command = 1;
+    struct Log * log;
     rio_t rio;
     if (argc != 2) {
         fprintf(stderr, "usage: %s <host> \n", argv[0]);
@@ -59,10 +60,14 @@ int main(int argc, char **argv){
     Signal(SIGPIPE, crashServeur);
 
     Rio_readinitb(&rio, clientfd); 
-    if(crashed()!= NULL){
+    if((log = crashed())!= NULL){
         //Reprise de téléchargement
         command = REPRISE_FUNC;
         Rio_writen(clientfd, &command, sizeof(char));
+        Rio_writen(clientfd, &log->tailleNom, sizeof(char));
+        Rio_writen(clientfd, log->name, log->tailleNom*sizeof(char));
+        Rio_writen(clientfd, &log->lastBloc, sizeof(int));
+        recuperePartiel(clientfd, rio, log->name, log->lastBloc);
     }else{
         while(command ){
             fprintf(stdout,"\nEntrez une commande\n");
@@ -195,6 +200,37 @@ struct Log * crashed(){
         return NULL;
     }
     
+}
+
+void recuperePartiel(int clientfd, rio_t rio, char * nom, int id){
+    clock_t begin = clock();
+    int nbOctetReceived = 0;
+    char * dossierSortie = calloc(strlen(DIR)+strlen(nom), sizeof(char));
+    strcat(dossierSortie, DIR);
+    int sortie = open(strcat(dossierSortie, name(nom, strlen(nom))),O_APPEND | O_RDWR ,S_IRWXU );
+    int nbBloc;
+    if(sortie < 0){
+        fprintf(stderr,"Impossible d'ecrire en sortie\n");
+        exit(1);
+    }
+    //On crée un fichier de log dans un répertoire caché
+
+    struct paquet * p = calloc(1, sizeof(struct paquet));
+    Rio_readn(rio.rio_fd, &nbBloc, sizeof(int));
+    int i = id;
+    while(i < nbBloc && Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
+        
+        nbOctetReceived += p->size;
+        write(sortie, p->data, p->size);
+        ecritureLog(p->id, nbBloc, fichierServ(nom));
+        //sleep(2);
+        fprintf(stderr, "Bloc ecrit\n");
+        i++;
+    }
+    clock_t end = clock();
+    remove("./DirClient/.log");
+    double millis = ((double)end-(double)begin)*1000/CLOCKS_PER_SEC;
+    fprintf(stdout, "%d octet(s) transféré en %f milli-secondes (%f Octets/ms)\n",nbOctetReceived, millis, ((nbOctetReceived) / (millis)));
 }
 
 

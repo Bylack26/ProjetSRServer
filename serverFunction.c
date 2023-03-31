@@ -87,14 +87,57 @@ void envoiePaquet(int connfd, struct paquet * p, int f){
 
 
 int reprise(int connfd){
+    Signal(SIGPIPE, handlerCrash);
+    rio_t rio;
     int debut;
-    char * name;
-
-
+    char taille;
     
+    Rio_readinitb(&rio, connfd);
+    Rio_readn(rio.rio_fd, &taille, sizeof(char));
+    fprintf(stderr, "taille = %d\n", taille);
+    char * name = calloc(taille, sizeof(char));
+    Rio_readn(rio.rio_fd, name, taille*sizeof(char));
+    name[taille-1] = '\0';
+    fprintf(stderr, "nom reprise = %s\n", name);
+    Rio_readn(rio.rio_fd, &debut, sizeof(int));
+    fprintf(stderr, "debut  = %d\n", debut);
+    int fd = open(name, O_RDONLY);
+
+    int retour = envoieReprise(connfd, rio, fd, debut);
+
+    return retour;
+
 }
 
+int envoieReprise(int connfd, rio_t rio, int fd, int id){
+    //On va sur les derniers blocs pas envoyé
+    lseek(fd, PAQUET_SIZE*id, SEEK_CUR);
 
+    int i = 0;
+    struct stat * s = malloc(sizeof(struct stat));
+    Fstat(fd, s);
+    fprintf(stderr, "off_t %ld\n", s->st_size);
+    int dim = s->st_size;
+    Rio_writen(connfd, &dim, sizeof(int));
+    int nbBloc = dim/ PAQUET_SIZE;
+    if(dim%PAQUET_SIZE){
+        nbBloc += 1;
+    }
+    
+    struct paquet *p;
+    p = calloc(1,sizeof(struct paquet));
+    partage = 1;
+    i = id+1;
+    Rio_writen(connfd, &nbBloc, sizeof(int));
+    while(partage && i < nbBloc){
+        p->id = i;
+        envoiePaquet(connfd, p, fd);
+        i++;   
+    }
+
+    partage = 1;
+    return (i == nbBloc);
+}
 
 
 

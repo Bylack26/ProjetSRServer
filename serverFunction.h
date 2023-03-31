@@ -3,7 +3,7 @@
 #define BYE "bye\n"
 #define GET_FUNC 1
 #define BYE_FUNC 0
-#define REPRISE_FUNC = 2;
+#define REPRISE_FUNC 2
 #define UNRECOGNIZE 0xFF
 
 struct paquet{
@@ -17,3 +17,5 @@ void envoiePaquet(int connfd, struct paquet * p, int f);
 int taille(int connfd);
 void echo(int connfd);
 char getCommand(int connfd);
+int reprise(int connfd);
+int envoieReprise(int connfd, rio_t rio, int fd, int id);

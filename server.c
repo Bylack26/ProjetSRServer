@@ -78,11 +78,7 @@ int main(int argc, char **argv)
                     crash = taille(connfd);
                     break;
                 case REPRISE_FUNC:
-                    char taille;
-                    
-                    char * name;
-
-                    crash = 
+                    crash = reprise(connfd);
                     break;
                 default:
                     break;
