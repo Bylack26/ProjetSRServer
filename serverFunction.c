@@ -2,14 +2,14 @@
  * echo - read and echo text lines until client closes connection
  */
 #include "csapp.h"
-#include "fixed_serv.h"
+#include "serverFunction.h"
 void echo(int connfd){
     size_t n;
     char buf[MAXLINE];
     rio_t rio;
 
     Rio_readinitb(&rio, connfd);
-    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
+    if((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
         printf("server received %u bytes\n", (unsigned int)n);
         Rio_writen(connfd, buf, n);
     }
@@ -35,31 +35,47 @@ void taille(int connfd){
     if(f < 0){
         fprintf(stderr, "une erreur est survenue avec le descripteur %d\n", f);
         int erreur = -1;
-        Rio_writen(connfd, &erreur, 4);// On envoie le code d'erreur
+        Rio_writen(connfd, &erreur, sizeof(int));// On envoie le code d'erreur
     }else{
+        //Récupération de la taille
         struct stat * s = malloc(sizeof(struct stat));
         Fstat(f, s);
-        fprintf(stderr, "off_t %ld", s->st_size);
+        fprintf(stderr, "off_t %ld\n", s->st_size);
         int dim = s->st_size;
+        Rio_writen(connfd, &dim, sizeof(int));
         int nbBloc = dim/ PAQUET_SIZE;
         if(dim%PAQUET_SIZE){
             nbBloc += 1;
         }
-        char * sortie = calloc(PAQUET_SIZE, sizeof(char));
         int i = 0;
         struct paquet *p;
         p = calloc(1,sizeof(struct paquet));
+
+        Rio_writen(connfd, &nbBloc, sizeof(int));
         while(i < nbBloc){
-            
-            int n = (int)read(f, p->data, sizeof(char)* PAQUET_SIZE);
-            p->size = n;
-            fprintf(stderr, "Cote serveur %d\n", n);
-            Rio_writen(connfd, p, sizeof(struct paquet));       
+            p->id = i;
+            envoiePaquet(connfd, p, f);
             i++;   
         }
+        
 
     }
 
 }
 
 
+void envoiePaquet(int connfd, struct paquet * p, int f){
+        int n = (int)read(f, p->data, sizeof(char)* PAQUET_SIZE);
+        p->size = n;
+        //fprintf(stderr, "Cote serveur %ld\n", p->size);
+        Rio_writen(connfd, p, sizeof(struct paquet));   
+}
+
+
+char getCommand(int connfd){
+    char command;
+    rio_t rio;
+    Rio_readinitb(&rio, connfd);
+    Rio_readn(rio.rio_fd, &command , sizeof(char));
+    return command;
+}

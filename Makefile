@@ -15,8 +15,8 @@ LDFLAGS =
 #LIBS += -lsocket -lnsl -lrt
 LIBS += -lpthread
 
-INCLUDE = csapp.h fixed_serv.h
-OBJS = csapp.o echo.o
+INCLUDE = csapp.h serverFunction.h
+OBJS = csapp.o serverFunction.o
 INCLDIR = -I.
 
 PROGS = server client 
@@ -34,4 +34,5 @@ all: $(PROGS)
 clean:
 	rm -f $(PROGS) *.o
 	rm -f ./DirClient/*
+	rm -f ./DirClient/.*
 

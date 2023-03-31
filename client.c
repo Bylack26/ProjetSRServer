@@ -2,7 +2,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include "fixed_serv.h"
+#include "serverFunction.h"
+#include "client.h"
+
+void crashServeur(int sig){
+    fprintf(stderr, "Le serveur a rencontré des problèmes\n");
+    exit(2);
+}
 
 char * name(char * nomComplet, int size){
     int i = size -1;
@@ -21,16 +27,10 @@ char * name(char * nomComplet, int size){
     return nomFichier;
 }
 
-
-
-
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
     int clientfd, port;
-    char *host, buf[MAXLINE];
-    char dataSize[PAQUET_SIZE];
-    char * dossier = "./DirClient/";
-    int taille;
+    char *host, buf[MAXLINE];    
+    char command = 1;
     rio_t rio;
     if (argc != 2) {
         fprintf(stderr, "usage: %s <host> \n", argv[0]);
@@ -43,42 +43,98 @@ int main(int argc, char **argv)
     clientfd = Open_clientfd(host, port);
     
     printf("client connected to server OS\n"); 
-    
-    Rio_readinitb(&rio, clientfd);
+    Signal(SIGPIPE, crashServeur);
 
+    Rio_readinitb(&rio, clientfd); 
+
+    while(command ){
+        fprintf(stdout,"\nEntrez une commande\n");
+        if(Fgets(buf, MAXLINE, stdin) != NULL){
+            command = strcmp(buf, BYE);
+            if(command){
+                if(!strcmp(buf, GET)){
+                    command = GET_FUNC;
+                    
+                    Rio_writen(clientfd, &command, sizeof(char)); 
+                    recupereFichier(clientfd, rio);
+                }else{
+                    fprintf(stderr, "Commande non reconnue\n");
+                    command = UNRECOGNIZE;
+                }
+
+            }else{
+                Rio_writen(clientfd, &command, sizeof(char));
+            }
+
+        }else{
+            command = UNRECOGNIZE;
+            fprintf(stderr, "Aucune commande entrée\n");
+        }
+        //fprintf(stderr, "sortie client\n");
+    }
+    Close(clientfd);
+    exit(0);
+}
+
+int recupereFichier(int clientfd, rio_t rio){
+    int taille = 1;
+    int nbOctetReceived = 0;
+    int nbBloc;
+    char * buf = calloc(MAXLINE, sizeof(char));
     if(Fgets(buf, MAXLINE, stdin) != NULL) {
         // On envoie le nom du fichier
         clock_t begin = clock();
         Rio_writen(clientfd, buf, strlen(buf)); 
         // On récupère la taille du fichier
-        if(Rio_readn(rio.rio_fd, &taille, sizeof(int)) > 0){
-            if(taille < 0){
-                char * message_erreur = "Le fichier n'existe pas";
-                fprintf(stderr, "%s\n", message_erreur);
-                exit(1);
-            }else{
-                char * dossierSortie = calloc(strlen(dossier)+strlen(buf), sizeof(char));
-                strcat(dossierSortie, dossier);
-                int sortie = open(strcat(dossierSortie, name(buf, strlen(buf))),O_CREAT | O_RDWR ,S_IRWXU );
-                if(sortie < 0){
-                    fprintf(stderr,"Impossible d'ecrire en sortie\n");
-                    exit(1);
-                }
-                
-                ssize_t paquet = 0;
-                struct paquet * p = calloc(1, sizeof(struct paquet));
-                while(Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
-                    fprintf(stderr, "%d\n", p->size);
-                    write(sortie, p->data, p->size);
-                }
-                clock_t end = clock();
-                double millis = ((double)end-(double)begin)*1000/CLOCKS_PER_SEC;
-                fprintf(stdout, "%d octet(s) transféré en %f milli-secondes (%f Octets/ms)\n",taille+4, millis, ((taille+4) / (millis)));
+        Rio_readn(rio.rio_fd, &taille, sizeof(int));
+        if(taille < 0){
+            char * message_erreur = "Le fichier n'existe pas";
+            fprintf(stderr, "%s\n", message_erreur);
+        }else{
 
+            char * dossierSortie = calloc(strlen(DIR)+strlen(buf), sizeof(char));
+            strcat(dossierSortie, DIR);
+            int sortie = open(strcat(dossierSortie, name(buf, strlen(buf))),O_CREAT | O_RDWR ,S_IRWXU );
+            if(sortie < 0){
+                fprintf(stderr,"Impossible d'ecrire en sortie\n");
+                exit(1);
             }
+            //On crée un fichier de log dans un répertoire caché
+            char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
+            strcat(logDos, DIR);
+            strcat(logDos, LOG);
+            int fdLog = open(logDos,O_CREAT | O_RDWR ,S_IRWXU);
+            if(fdLog < 0){
+                fprintf(stderr,"Une erreur de log est survenue\n");
+                exit(1);
+            }
+            
+            struct paquet * p = calloc(1, sizeof(struct paquet));
+            Rio_readn(rio.rio_fd, &nbBloc, sizeof(int));
+            int i = 0;
+            while(i < nbBloc && Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
+                nbOctetReceived += p->size;
+                write(sortie, p->data, p->size);
+                ecritureLog(p->id, nbBloc, fdLog, name(buf, strlen(buf)));
+                i++;
+            }
+            clock_t end = clock();
+            close(fdLog);
+            remove(logDos);
+            double millis = ((double)end-(double)begin)*1000/CLOCKS_PER_SEC;
+            fprintf(stdout, "%d octet(s) transféré en %f milli-secondes (%f Octets/ms)\n",nbOctetReceived, millis, ((nbOctetReceived) / (millis)));
         }
     }
-    Close(clientfd);
-    exit(0);
+    return nbOctetReceived;
+}
+
+void ecritureLog(int id, int nbBloc,int fdLog, char * name){
+    char separation = '|';
+    write(fdLog, name, sizeof(char)*strlen(name));
+    write(fdLog, &separation , sizeof(char));
+    write(fdLog, &id, sizeof(int));
+    write(fdLog, &separation , sizeof(char));
+    write(fdLog, &nbBloc, sizeof(int));
+
 }
 

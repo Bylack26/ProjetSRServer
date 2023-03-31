@@ -1,13 +1,16 @@
 #include "csapp.h"
-
+#include <stdlib.h>
+#include <stdio.h>
+#include "serverFunction.h"
 #define MAX_NAME_LEN 256
 #define NBPROCMAX 3
 
+void crashClient(int sig){
+    fprintf(stderr, "Le client s'est déconnecté\n");
+}
+
 
 pid_t tabpid[NBPROCMAX];
-
-void echo(int connfd);
-void taille(int connfd);
 
 void handlerChild(int sig){
     pid_t pid;
@@ -25,15 +28,17 @@ void handlerINT(int sig){
 int main(int argc, char **argv)
 {
     int listenfd, connfd, port;
+    char command =1;
     socklen_t clientlen;
     struct sockaddr_in clientaddr;
     char client_ip_string[INET_ADDRSTRLEN];
     char client_hostname[MAX_NAME_LEN];
     port = 2121;
     pid_t pid;
-    
+    Signal(SIGPIPE, crashClient);
     clientlen = (socklen_t)sizeof(clientaddr);
     Signal(SIGCHLD, handlerChild);
+    Signal(SIGPIPE, crashClient);
     listenfd = Open_listenfd(port); // socket de connection
     int nbps=0;
     while(nbps < NBPROCMAX ){
@@ -51,20 +56,26 @@ int main(int argc, char **argv)
     }
 
     while (1) {
-
-        while((connfd = accept(listenfd, (SA *)&clientaddr, &clientlen)) < 0); // socket de communication
+        while((connfd = accept(listenfd, (SA *)&clientaddr, &clientlen)) < 0);
+        // socket de communication
         /* determine the name of the client */
-        Getnameinfo((SA *) &clientaddr, clientlen,
-                    client_hostname, MAX_NAME_LEN, 0, 0, 0);
+        Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAX_NAME_LEN, 0, 0, 0);
         
         /* determine the textual representation of the client's IP address */
-        Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string,
-                    INET_ADDRSTRLEN);
+        Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string, INET_ADDRSTRLEN);
         
-        printf("server connected to %s (%s)\n", client_hostname,
-                client_ip_string); 
-        taille(connfd);
-
+        printf("server connected to %s (%s)\n", client_hostname, client_ip_string); 
+        command = getCommand(connfd);
+        fprintf(stderr, "Command cote serveur %d\n", command);
+        while(command){
+            fprintf(stderr, "Boucle cote serveur %d\n", command);
+            if(command == GET_FUNC){
+                taille(connfd);
+            }
+            fprintf(stderr, "Sortie serveur\n");
+            command = getCommand(connfd);
+            fprintf(stderr, "Boucle cote serveur fin %d\n", command);
+        }
         Close(connfd);  
     }
     exit(0);
