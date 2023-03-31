@@ -3,6 +3,7 @@
 #define BYE "bye\n"
 #define GET_FUNC 1
 #define BYE_FUNC 0
+#define REPRISE_FUNC = 2;
 #define UNRECOGNIZE 0xFF
 
 struct paquet{

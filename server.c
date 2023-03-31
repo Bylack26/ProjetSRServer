@@ -71,12 +71,23 @@ int main(int argc, char **argv)
         
         printf("server connected to %s (%s)\n", client_hostname, client_ip_string); 
         command = getCommand(connfd);
-        fprintf(stderr, "Command cote serveur %d\n", command);
         while(command){
             fprintf(stderr, "Boucle cote serveur %d\n", command);
-            if(command == GET_FUNC){
-                crash = taille(connfd);
+            switch (command){
+                case GET_FUNC:
+                    crash = taille(connfd);
+                    break;
+                case REPRISE_FUNC:
+                    char taille;
+                    
+                    char * name;
+
+                    crash = 
+                    break;
+                default:
+                    break;
             }
+
             if(!crash){
                 fprintf(stderr,"On break\n");
                 break;

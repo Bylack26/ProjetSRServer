@@ -86,7 +86,13 @@ void envoiePaquet(int connfd, struct paquet * p, int f){
 }
 
 
+int reprise(int connfd){
+    int debut;
+    char * name;
 
+
+    
+}
 
 
 

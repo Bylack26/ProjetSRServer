@@ -2,6 +2,7 @@
 #define DIR "./DirClient/"
 struct Log{
     int lastBloc;
+    char tailleNom;
     char * name;
 };
 

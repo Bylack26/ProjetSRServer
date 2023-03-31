@@ -60,7 +60,9 @@ int main(int argc, char **argv){
 
     Rio_readinitb(&rio, clientfd); 
     if(crashed()!= NULL){
-
+        //Reprise de téléchargement
+        command = REPRISE_FUNC;
+        Rio_writen(clientfd, &command, sizeof(char));
     }else{
         while(command ){
             fprintf(stdout,"\nEntrez une commande\n");
@@ -158,8 +160,6 @@ void ecritureLog(int id, int nbBloc, char * name){
     write(fdLog, &id, sizeof(int));
 }
 
-
-
 struct Log * crashed(){
     char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
     strcat(logDos, DIR);
@@ -170,6 +170,7 @@ struct Log * crashed(){
         struct Log * log = calloc(1, sizeof(struct Log));
         char c;
         int n = (int)read(fdLog, &c, sizeof(char));
+        log->tailleNom = c;
         int i = 0;
         log->name = calloc(c, sizeof(char));
         n = (int)read(fdLog, &c, sizeof(char));
