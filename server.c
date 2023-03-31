@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include "serverFunction.h"
 #define MAX_NAME_LEN 256
-#define NBPROCMAX 3
+#define NBPROCMAX 0
+
 
 void crashClient(int sig){
     fprintf(stderr, "Le client s'est déconnecté\n");
@@ -29,18 +30,20 @@ int main(int argc, char **argv)
 {
     int listenfd, connfd, port;
     char command =1;
+    int crash = 0;
     socklen_t clientlen;
     struct sockaddr_in clientaddr;
     char client_ip_string[INET_ADDRSTRLEN];
     char client_hostname[MAX_NAME_LEN];
     port = 2121;
     pid_t pid;
-    Signal(SIGPIPE, crashClient);
     clientlen = (socklen_t)sizeof(clientaddr);
-    Signal(SIGCHLD, handlerChild);
-    Signal(SIGPIPE, crashClient);
+    //Signal(SIGPIPE, crashClient);
     listenfd = Open_listenfd(port); // socket de connection
     int nbps=0;
+    if(argc < 0){
+
+    }
     while(nbps < NBPROCMAX ){
         pid = Fork();
         tabpid[nbps]= pid;
@@ -54,6 +57,8 @@ int main(int argc, char **argv)
         Signal(SIGINT, handlerINT);
         Signal(SIGCHLD, handlerChild);
     }
+
+    
 
     while (1) {
         while((connfd = accept(listenfd, (SA *)&clientaddr, &clientlen)) < 0);
@@ -70,12 +75,16 @@ int main(int argc, char **argv)
         while(command){
             fprintf(stderr, "Boucle cote serveur %d\n", command);
             if(command == GET_FUNC){
-                taille(connfd);
+                crash = taille(connfd);
+            }
+            if(!crash){
+                fprintf(stderr,"On break\n");
+                break;
             }
             fprintf(stderr, "Sortie serveur\n");
             command = getCommand(connfd);
-            fprintf(stderr, "Boucle cote serveur fin %d\n", command);
         }
+        fprintf(stderr,"Connection coupé\n");
         Close(connfd);  
     }
     exit(0);

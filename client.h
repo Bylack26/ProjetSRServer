@@ -2,7 +2,6 @@
 #define DIR "./DirClient/"
 struct Log{
     int lastBloc;
-    int maxBlock;
     char * name;
 };
 
@@ -13,5 +12,6 @@ int recupereFichier(int clientfd, rio_t rio);
  * Ecris aussi l'indice du dernier bloc reçu et écrit.
  * Ecrit aussi le nombre de blocs total dans le téléchargement.
  */
-void ecritureLog(int id, int nbBloc,int fdLog, char * name);
+void ecritureLog(int id, int nbBloc, char * name);
 struct Log lectureLog(int fdLog);
+struct Log * crashed();

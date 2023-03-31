@@ -4,6 +4,7 @@
 #define GET_FUNC 1
 #define BYE_FUNC 0
 #define UNRECOGNIZE 0xFF
+
 struct paquet{
     ssize_t size;
     char data[PAQUET_SIZE];
@@ -12,6 +13,6 @@ struct paquet{
 
 
 void envoiePaquet(int connfd, struct paquet * p, int f);
-void taille(int connfd);
+int taille(int connfd);
 void echo(int connfd);
 char getCommand(int connfd);

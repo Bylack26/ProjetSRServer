@@ -3,6 +3,15 @@
  */
 #include "csapp.h"
 #include "serverFunction.h"
+#include <unistd.h>
+int partage = 1;
+
+void handlerCrash(int sig){
+    partage = 0;
+    fprintf(stderr, "Handler Sig pipe\n");
+}
+
+
 void echo(int connfd){
     size_t n;
     char buf[MAXLINE];
@@ -15,13 +24,15 @@ void echo(int connfd){
     }
 }
 
-void taille(int connfd){
+int taille(int connfd){
+    Signal(SIGPIPE, handlerCrash);
     rio_t rio;
     char * buf = (char *)calloc(MAXLINE,sizeof(char));
-
+    int i = 0;
     Rio_readinitb(&rio, connfd);
     size_t n = Rio_readlineb(&rio, buf, MAXLINE);
     char fichier[n];
+    int nbBloc = 0;
 
     for(int i =0; i < n-1; i++){
         fichier[i] = buf[i];
@@ -43,33 +54,42 @@ void taille(int connfd){
         fprintf(stderr, "off_t %ld\n", s->st_size);
         int dim = s->st_size;
         Rio_writen(connfd, &dim, sizeof(int));
-        int nbBloc = dim/ PAQUET_SIZE;
+        nbBloc = dim/ PAQUET_SIZE;
         if(dim%PAQUET_SIZE){
             nbBloc += 1;
         }
-        int i = 0;
+        
         struct paquet *p;
         p = calloc(1,sizeof(struct paquet));
 
         Rio_writen(connfd, &nbBloc, sizeof(int));
-        while(i < nbBloc){
+        while(partage && i < nbBloc){
             p->id = i;
             envoiePaquet(connfd, p, f);
+            sleep(2);
             i++;   
         }
-        
 
     }
-
+    partage = 1;
+    return (i == nbBloc);
 }
 
 
 void envoiePaquet(int connfd, struct paquet * p, int f){
+    if(partage != 0){
         int n = (int)read(f, p->data, sizeof(char)* PAQUET_SIZE);
         p->size = n;
         //fprintf(stderr, "Cote serveur %ld\n", p->size);
-        Rio_writen(connfd, p, sizeof(struct paquet));   
+        rio_writen(connfd, p, sizeof(struct paquet));  
+    }         
 }
+
+
+
+
+
+
 
 
 char getCommand(int connfd){

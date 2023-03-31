@@ -4,11 +4,24 @@
 #include <time.h>
 #include "serverFunction.h"
 #include "client.h"
+#include <unistd.h>
 
 void crashServeur(int sig){
     fprintf(stderr, "Le serveur a rencontré des problèmes\n");
     exit(2);
 }
+
+char * fichierServ(char * nom){
+    char * c = calloc(strlen(nom), sizeof(char));
+    int i =0;
+    while(i < strlen(nom)){
+        c[i] = nom[i];
+        i++;
+    }
+    return c;
+}
+
+
 
 char * name(char * nomComplet, int size){
     int i = size -1;
@@ -46,32 +59,36 @@ int main(int argc, char **argv){
     Signal(SIGPIPE, crashServeur);
 
     Rio_readinitb(&rio, clientfd); 
+    if(crashed()!= NULL){
 
-    while(command ){
-        fprintf(stdout,"\nEntrez une commande\n");
-        if(Fgets(buf, MAXLINE, stdin) != NULL){
-            command = strcmp(buf, BYE);
-            if(command){
-                if(!strcmp(buf, GET)){
-                    command = GET_FUNC;
-                    
-                    Rio_writen(clientfd, &command, sizeof(char)); 
-                    recupereFichier(clientfd, rio);
+    }else{
+        while(command ){
+            fprintf(stdout,"\nEntrez une commande\n");
+            if(Fgets(buf, MAXLINE, stdin) != NULL){
+                command = strcmp(buf, BYE);
+                if(command){
+                    if(!strcmp(buf, GET)){
+                        command = GET_FUNC;
+                        
+                        Rio_writen(clientfd, &command, sizeof(char)); 
+                        recupereFichier(clientfd, rio);
+                    }else{
+                        fprintf(stderr, "Commande non reconnue\n");
+                        command = UNRECOGNIZE;
+                    }
+
                 }else{
-                    fprintf(stderr, "Commande non reconnue\n");
-                    command = UNRECOGNIZE;
+                    Rio_writen(clientfd, &command, sizeof(char));
                 }
 
             }else{
-                Rio_writen(clientfd, &command, sizeof(char));
+                command = UNRECOGNIZE;
+                fprintf(stderr, "Aucune commande entrée\n");
             }
-
-        }else{
-            command = UNRECOGNIZE;
-            fprintf(stderr, "Aucune commande entrée\n");
+            //fprintf(stderr, "sortie client\n");
         }
-        //fprintf(stderr, "sortie client\n");
     }
+
     Close(clientfd);
     exit(0);
 }
@@ -100,27 +117,22 @@ int recupereFichier(int clientfd, rio_t rio){
                 exit(1);
             }
             //On crée un fichier de log dans un répertoire caché
-            char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
-            strcat(logDos, DIR);
-            strcat(logDos, LOG);
-            int fdLog = open(logDos,O_CREAT | O_RDWR ,S_IRWXU);
-            if(fdLog < 0){
-                fprintf(stderr,"Une erreur de log est survenue\n");
-                exit(1);
-            }
-            
+
             struct paquet * p = calloc(1, sizeof(struct paquet));
             Rio_readn(rio.rio_fd, &nbBloc, sizeof(int));
             int i = 0;
             while(i < nbBloc && Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
+                
                 nbOctetReceived += p->size;
                 write(sortie, p->data, p->size);
-                ecritureLog(p->id, nbBloc, fdLog, name(buf, strlen(buf)));
+                
+                ecritureLog(p->id, nbBloc, fichierServ(buf));
+                //sleep(2);
+                fprintf(stderr, "Bloc ecrit\n");
                 i++;
             }
             clock_t end = clock();
-            close(fdLog);
-            remove(logDos);
+            remove("./DirClient/.log");
             double millis = ((double)end-(double)begin)*1000/CLOCKS_PER_SEC;
             fprintf(stdout, "%d octet(s) transféré en %f milli-secondes (%f Octets/ms)\n",nbOctetReceived, millis, ((nbOctetReceived) / (millis)));
         }
@@ -128,13 +140,60 @@ int recupereFichier(int clientfd, rio_t rio){
     return nbOctetReceived;
 }
 
-void ecritureLog(int id, int nbBloc,int fdLog, char * name){
+void ecritureLog(int id, int nbBloc, char * name){
     char separation = '|';
+    char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
+    strcat(logDos, DIR);
+    strcat(logDos, LOG);
+    remove(logDos);
+    int fdLog = open(logDos, O_CREAT | O_RDWR ,S_IRWXU);
+    if(fdLog < 0){
+        fprintf(stderr,"Une erreur de log est survenue\n");
+        exit(1);
+    }
+    char tailleNom = (char)strlen(name);
+    write(fdLog, &tailleNom, sizeof(char));
     write(fdLog, name, sizeof(char)*strlen(name));
     write(fdLog, &separation , sizeof(char));
     write(fdLog, &id, sizeof(int));
-    write(fdLog, &separation , sizeof(char));
-    write(fdLog, &nbBloc, sizeof(int));
-
 }
+
+
+
+struct Log * crashed(){
+    char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
+    strcat(logDos, DIR);
+    strcat(logDos, LOG);
+    int fdLog = open(logDos, O_RDONLY ,S_IRWXU);
+    fprintf(stderr, "ficier = %d", fdLog);
+    if(fdLog != -1){
+        struct Log * log = calloc(1, sizeof(struct Log));
+        char c;
+        int n = (int)read(fdLog, &c, sizeof(char));
+        int i = 0;
+        log->name = calloc(c, sizeof(char));
+        n = (int)read(fdLog, &c, sizeof(char));
+        while(n == 1 &&  c != '\n'){
+            log->name[i] = c;
+            n = (int)read(fdLog, &c, sizeof(char));
+            i++;
+        }
+        fprintf(stderr, "name = %s\n", log->name);
+        n = (int)read(fdLog, &c, sizeof(char));
+        if(c != '|'){
+            fprintf(stderr,"Fichier log corrompu\n");
+            return NULL;
+        }
+        int id;
+        n = (int)read(fdLog, &id, sizeof(int));
+        fprintf(stderr, "id = %d", id);
+        log->lastBloc = id;
+        return log;
+        
+    }else{
+        return NULL;
+    }
+    
+}
+
 
