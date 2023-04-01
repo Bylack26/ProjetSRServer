@@ -11,24 +11,15 @@ void handlerCrash(int sig){
     fprintf(stderr, "Handler Sig pipe\n");
 }
 
-void echo(int connfd){
-    size_t n;
-    char buf[MAXLINE];
-    rio_t rio;
-
-    Rio_readinitb(&rio, connfd);
-    if((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
-        printf("server received %u bytes\n", (unsigned int)n);
-        Rio_writen(connfd, buf, n);
-    }
-}
-
 int taille(int connfd){
+    //Initialisation
     Signal(SIGPIPE, handlerCrash);
     rio_t rio;
     char * buf = (char *)calloc(MAXLINE,sizeof(char));
     int i = 0;
     Rio_readinitb(&rio, connfd);
+
+    //Lecture du nom de fichier
     size_t n = Rio_readlineb(&rio, buf, MAXLINE);
     char fichier[n];
     int nbBloc = 0;
@@ -40,12 +31,13 @@ int taille(int connfd){
     fprintf(stderr, "%s\n", fichier);
 
 
-
+    //Ouverture du fichier
     int f = open(fichier, (DEF_MODE) & ~(DEF_UMASK), "r");
+    //Si le fichier n'existe pas
     if(f < 0){
         fprintf(stderr, "une erreur est survenue avec le descripteur %d\n", f);
         int erreur = -1;
-        Rio_writen(connfd, &erreur, sizeof(int));// On envoie le code d'erreur
+        Rio_writen(connfd, &erreur, sizeof(int));// On envoie le code d'erreur -1 au client
     }else{
         //Récupération de la taille
         struct stat * s = malloc(sizeof(struct stat));
@@ -64,14 +56,16 @@ int taille(int connfd){
         
         struct paquet *p;
         p = calloc(1,sizeof(struct paquet));
-
+        //Envoie des paquets les uns après les autres
         Rio_writen(connfd, &nbBloc, sizeof(int));
         while(partage && i < nbBloc){
             p->id = i;
             envoiePaquet(connfd, p, f);
-            sleep(1);
+            //Decommentez le sleep pour laisser le temps de tuer le client
+            //sleep(1);
             i++;   
         }
+        free(p);
 
     }
     partage = 1;
@@ -83,7 +77,8 @@ int reprise(int connfd){
     rio_t rio;
     int debut;
     char taille;
-    
+    int retour= 1;
+    int fichierExiste = 0;
     Rio_readinitb(&rio, connfd);
     //Recuperation de la taille du nom du fichier
     Rio_readn(rio.rio_fd, &taille, sizeof(char));
@@ -94,11 +89,17 @@ int reprise(int connfd){
     //Lecture de l'ID de debut
     Rio_readn(rio.rio_fd, &debut, sizeof(int));
 
+    //Verification de l'existence du fichier 
+    Rio_readn(rio.rio_fd, &fichierExiste, sizeof(int));
+    if(fichierExiste < 0){
+        //On ignore l'envoie de fichier si il n'existe plus chez le client
+        goto pasDeFichier;
+    }
     //Ouvertur du fichier correspondant
     int fd = open(name, O_RDONLY);
 
-    int retour = envoieReprise(connfd, rio, fd, debut);
-
+    retour = envoieReprise(connfd, rio, fd, debut);
+pasDeFichier:
     return retour;
 
 }
@@ -124,7 +125,6 @@ int envoieReprise(int connfd, rio_t rio, int fd, int id){
     p = calloc(1,sizeof(struct paquet));
     
     //Envoie du nombre de bloc
-    fprintf(stderr, "Serveur reprise nombre bloc = %d\n", nbBloc);
     Rio_writen(connfd, &nbBloc, sizeof(int));
 
     // Envoi des blocs
@@ -152,7 +152,6 @@ void envoiePaquet(int connfd, struct paquet * p, int f){
     if(partage != 0){
         int n = (int)read(f, p->data, sizeof(char)* PAQUET_SIZE);
         p->size = n;
-        //fprintf(stderr, "Cote serveur %ld\n", p->size);
         rio_writen(connfd, p, sizeof(struct paquet));  
     }         
 }

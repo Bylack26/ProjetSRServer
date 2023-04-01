@@ -23,7 +23,7 @@ void handlerINT(int sig){
 
 int main(int argc, char **argv){
     int listenfd, connfd, port;
-    char command =1;
+    char command = START;
     int crash = 0;
     socklen_t clientlen;
     struct sockaddr_in clientaddr;
@@ -73,6 +73,7 @@ int main(int argc, char **argv){
                     break;
                 case REPRISE_FUNC:
                     crash = reprise(connfd);
+
                     break;
                 default:
                     break;

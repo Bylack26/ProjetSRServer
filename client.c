@@ -6,10 +6,12 @@
 #include "client.h"
 #include <unistd.h>
 
+//Handler lors d'un crash du serveur
 void crashServeur(int sig){
     fprintf(stderr, "Le serveur a rencontré des problèmes\n");
     exit(2);
 }
+
 
 char * fichierServ(char * nom){
     char * c = calloc(strlen(nom), sizeof(char));
@@ -38,15 +40,13 @@ char * name(char * nomComplet, int size){
     for(;j < taille; j++){
         nomFichier[j] = '\0';
     }
-    
-    fprintf(stderr, "pas de retour : Nom fichier %s", nomFichier);
     return nomFichier;
 }
 
 int main(int argc, char **argv){
     int clientfd, port;
     char *host, buf[MAXLINE];    
-    char command = 1;
+    char command = START;
     struct Log * log;
     rio_t rio;
     if (argc != 2) {
@@ -54,6 +54,7 @@ int main(int argc, char **argv){
         exit(0);
     }
 
+    //Initialisation de la communication
     host = argv[1];
     port = 2121;
 
@@ -65,20 +66,26 @@ int main(int argc, char **argv){
     Rio_readinitb(&rio, clientfd); 
     if((log = crashed())!= NULL){
         //Reprise de téléchargement
+        
         command = REPRISE_FUNC;
         Rio_writen(clientfd, &command, sizeof(char));
         Rio_writen(clientfd, &log->tailleNom, sizeof(char));
         Rio_writen(clientfd, log->name, log->tailleNom*sizeof(char));
         Rio_writen(clientfd, &log->lastBloc, sizeof(int));
         recuperePartiel(clientfd, rio, log->name, log->lastBloc);
-        goto recuperation;
+        command = START;
+        goto recuperationFinit;
     }else{
-recuperation:
+recuperationFinit:
+            //Tant que command est different de 0 c'est à dire "bye"
             while(command ){
             fprintf(stdout,"Entrez une commande\n");
+            //On récupère la commande sur l'entrée standard
             if(Fgets(buf, MAXLINE, stdin) != NULL){
+                //Traitement selon commande
                 command = strcmp(buf, BYE);
                 if(command){
+                    //Si la commande est "get"
                     if(!strcmp(buf, GET)){
                         command = GET_FUNC;
                         Rio_writen(clientfd, &command, sizeof(char)); 
@@ -104,6 +111,7 @@ recuperation:
     exit(0);
 }
 
+//On récupère le fichier depuis le serveur
 int recupereFichier(int clientfd, rio_t rio){
     int taille = 1;
     int nbOctetReceived = 0;
@@ -154,12 +162,15 @@ int recupereFichier(int clientfd, rio_t rio){
     return nbOctetReceived;
 }
 
+//Ecriture du fichier de log
 void ecritureLog(int id, int nbBloc, char * name){
     char separation = '|';
     char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
     strcat(logDos, DIR);
     strcat(logDos, LOG);
+    //Suppresion du fichier si il existe 
     remove(logDos);
+    //Récriture des nouvelles données dans un fichier ".log"
     int fdLog = open(logDos, O_CREAT | O_RDWR ,S_IRWXO| S_IRWXU | S_IRWXG );
     if(fdLog < 0){
         fprintf(stderr,"Une erreur de log est survenue\n");
@@ -172,6 +183,7 @@ void ecritureLog(int id, int nbBloc, char * name){
     write(fdLog, &id, sizeof(int));
 }
 
+//Indique si le téléchargement à échoué précédemment
 struct Log * crashed(){
     char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
     strcat(logDos, DIR);
@@ -182,9 +194,11 @@ struct Log * crashed(){
     if(fdLog != -1){
         struct Log * log = calloc(1, sizeof(struct Log));
         char c;
+        //Récuperation de la taille du nom (premiers octets)
         int n = (int)read(fdLog, &c, sizeof(char));
         log->tailleNom = c;
         int i = 0;
+        //Recuperation du chemin complet du fichier(dans un char * de la taille précédemment récupéré)
         log->name = calloc(c, sizeof(char));
         n = (int)read(fdLog, &c, sizeof(char));
         while(n == 1 &&  c != '|'){
@@ -197,6 +211,7 @@ struct Log * crashed(){
             return NULL;
         }
         int id;
+        //Lecture de l'id du dernier paquet lu
         n = (int)read(fdLog, &id, sizeof(int));
         log->lastBloc = id+1;
         return log;
@@ -207,6 +222,8 @@ struct Log * crashed(){
     
 }
 
+
+//Récupération d'une partie d'un document dont le téléchargement a été interrompu.
 void recuperePartiel(int clientfd, rio_t rio, char * nom, int id){
     clock_t begin = clock();
     int nbOctetReceived = 0;
@@ -216,15 +233,23 @@ void recuperePartiel(int clientfd, rio_t rio, char * nom, int id){
     char * dossierSortie = calloc(strlen(DIR)+strlen(nom), sizeof(char));
     strcat(dossierSortie, DIR);
     strcat(dossierSortie, name(nom, strlen(nom)));
-    int sortie = open("./DirClient/Photo.png",O_APPEND | O_RDWR);
+    int sortie = open(dossierSortie,O_APPEND | O_RDWR);
     
+    //Si le fichier n'existe plus suppression du log et remise du client enattente de commande
+    Rio_writen(clientfd, &sortie, sizeof(int)); 
     if(sortie < 0){
         fprintf(stderr,"Impossible de reprendre le téléchargment\n Erreur :  %s\n", strerror(errno));
-        exit(1);
+        remove("./DirClient/.log");
+        //On ignore tout le code si le fichier n'existe pas
+        goto aucunFichier;
     }
+    
+    
     struct paquet * p = calloc(1, sizeof(struct paquet));
+    //Lecture du nombre de paquet a recevoir
     Rio_readn(rio.rio_fd, &nbBloc, sizeof(int));
     int i = id;
+    //récupération des paquets manquants
     while(i < nbBloc && Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
         
         nbOctetReceived += p->size;
@@ -233,9 +258,12 @@ void recuperePartiel(int clientfd, rio_t rio, char * nom, int id){
         i++;
     }
     clock_t end = clock();
+    free(p);
+    //Effacement du fichier log à la fin du téléchargement
     remove("./DirClient/.log");
     double millis = ((double)end-(double)begin)*1000/CLOCKS_PER_SEC;
     fprintf(stdout, "%d octet(s) transféré en %f milli-secondes (%f Octets/ms)\n",nbOctetReceived, millis, ((nbOctetReceived) / (millis)));
+aucunFichier:
 }
 
 
