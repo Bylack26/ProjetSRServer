@@ -21,3 +21,7 @@ Commande:
 - "get" : attends la saisie sur l'entrée standard du chemin vers un fichier connu du serveur.
 Récupère et copie le fichier par paquets.
 - "bye" : coupe la connexion avec le serveur et arrête le client.
+
+Test:
+
+- Voir le rapport : Rapport Serveur FTP Vial-Combe.pdf
