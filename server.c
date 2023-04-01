@@ -5,13 +5,11 @@
 #define MAX_NAME_LEN 256
 #define NBPROCMAX 0
 
+pid_t tabpid[NBPROCMAX];
 
 void crashClient(int sig){
     fprintf(stderr, "Le client s'est déconnecté\n");
 }
-
-
-pid_t tabpid[NBPROCMAX];
 
 void handlerChild(int sig){
     pid_t pid;
@@ -19,15 +17,12 @@ void handlerChild(int sig){
 
     }
 }
+
 void handlerINT(int sig){
     Kill(0,SIGKILL);
 }
 
-
-
-
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
     int listenfd, connfd, port;
     char command =1;
     int crash = 0;

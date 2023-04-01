@@ -21,22 +21,25 @@ char * fichierServ(char * nom){
     return c;
 }
 
-
-
 char * name(char * nomComplet, int size){
     int i = size -1;
     while(i >= 0 && nomComplet[i] != '/'){
         i--;
     }
     i++;
-    char * nomFichier = calloc(size -i+1, sizeof(char));
+    int taille = size -i+1;
+    char * nomFichier = calloc(taille, sizeof(char));
     int j =0;
-    while(i < size){
+    while(i < size && nomComplet[i] != '\n'){
         nomFichier[j] = nomComplet[i];
         j++;
         i++;
     }
-    nomFichier[j] = '\0';
+    for(;j < taille; j++){
+        nomFichier[j] = '\0';
+    }
+    
+    fprintf(stderr, "pas de retour : Nom fichier %s", nomFichier);
     return nomFichier;
 }
 
@@ -70,7 +73,7 @@ int main(int argc, char **argv){
         recuperePartiel(clientfd, rio, log->name, log->lastBloc);
     }else{
         while(command ){
-            fprintf(stdout,"\nEntrez une commande\n");
+            fprintf(stdout,"Entrez une commande\n");
             if(Fgets(buf, MAXLINE, stdin) != NULL){
                 command = strcmp(buf, BYE);
                 if(command){
@@ -118,7 +121,8 @@ int recupereFichier(int clientfd, rio_t rio){
 
             char * dossierSortie = calloc(strlen(DIR)+strlen(buf), sizeof(char));
             strcat(dossierSortie, DIR);
-            int sortie = open(strcat(dossierSortie, name(buf, strlen(buf))),O_CREAT | O_RDWR ,S_IRWXU );
+            int sortie = open(strcat(dossierSortie, name(buf, strlen(buf))),O_CREAT | O_RDWR ,S_IRWXO| S_IRWXU | S_IRWXG);
+            
             if(sortie < 0){
                 fprintf(stderr,"Impossible d'ecrire en sortie\n");
                 exit(1);
@@ -153,7 +157,7 @@ void ecritureLog(int id, int nbBloc, char * name){
     strcat(logDos, DIR);
     strcat(logDos, LOG);
     remove(logDos);
-    int fdLog = open(logDos, O_CREAT | O_RDWR ,S_IRWXU);
+    int fdLog = open(logDos, O_CREAT | O_RDWR ,S_IRWXO| S_IRWXU | S_IRWXG );
     if(fdLog < 0){
         fprintf(stderr,"Une erreur de log est survenue\n");
         exit(1);
@@ -169,8 +173,10 @@ struct Log * crashed(){
     char * logDos = calloc(strlen(DIR)+strlen(LOG), sizeof(char));
     strcat(logDos, DIR);
     strcat(logDos, LOG);
-    int fdLog = open(logDos, O_RDONLY ,S_IRWXU);
-    fprintf(stderr, "ficier = %d", fdLog);
+    int fdLog = open(logDos, O_RDONLY);
+    fprintf(stderr, "fichier = %d\n", fdLog);
+
+    //Lecture du fichier log
     if(fdLog != -1){
         struct Log * log = calloc(1, sizeof(struct Log));
         char c;
@@ -179,21 +185,18 @@ struct Log * crashed(){
         int i = 0;
         log->name = calloc(c, sizeof(char));
         n = (int)read(fdLog, &c, sizeof(char));
-        while(n == 1 &&  c != '\n'){
+        while(n == 1 &&  c != '|'){
             log->name[i] = c;
             n = (int)read(fdLog, &c, sizeof(char));
             i++;
         }
-        fprintf(stderr, "name = %s\n", log->name);
-        n = (int)read(fdLog, &c, sizeof(char));
         if(c != '|'){
             fprintf(stderr,"Fichier log corrompu\n");
             return NULL;
         }
         int id;
         n = (int)read(fdLog, &id, sizeof(int));
-        fprintf(stderr, "id = %d", id);
-        log->lastBloc = id;
+        log->lastBloc = id+1;
         return log;
         
     }else{
@@ -205,26 +208,27 @@ struct Log * crashed(){
 void recuperePartiel(int clientfd, rio_t rio, char * nom, int id){
     clock_t begin = clock();
     int nbOctetReceived = 0;
+    int nbBloc;
+
+    //Ouverture du fichier en cours de téléchargement
     char * dossierSortie = calloc(strlen(DIR)+strlen(nom), sizeof(char));
     strcat(dossierSortie, DIR);
-    int sortie = open(strcat(dossierSortie, name(nom, strlen(nom))),O_APPEND | O_RDWR ,S_IRWXU );
-    int nbBloc;
+    strcat(dossierSortie, name(nom, strlen(nom)));
+    int sortie = open("./DirClient/Photo.png",O_APPEND | O_RDWR);
+    
     if(sortie < 0){
-        fprintf(stderr,"Impossible d'ecrire en sortie\n");
+        fprintf(stderr,"Impossible de reprendre le téléchargment\n Erreur :  %s\n", strerror(errno));
         exit(1);
     }
-    //On crée un fichier de log dans un répertoire caché
-
     struct paquet * p = calloc(1, sizeof(struct paquet));
     Rio_readn(rio.rio_fd, &nbBloc, sizeof(int));
     int i = id;
+    fprintf(stderr, "Nombre bloc reprise = %d", nbBloc);
     while(i < nbBloc && Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
         
         nbOctetReceived += p->size;
         write(sortie, p->data, p->size);
         ecritureLog(p->id, nbBloc, fichierServ(nom));
-        //sleep(2);
-        fprintf(stderr, "Bloc ecrit\n");
         i++;
     }
     clock_t end = clock();
