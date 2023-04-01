@@ -5,6 +5,8 @@
 #define BYE_FUNC 0
 #define REPRISE_FUNC 2
 #define UNRECOGNIZE 0xFF
+#define MAX_NAME_LEN 256
+#define NBPROCMAX 5
 
 struct paquet{
     ssize_t size;

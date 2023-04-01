@@ -18,8 +18,9 @@ LIBS += -lpthread
 INCLUDE = csapp.h serverFunction.h
 OBJS = csapp.o serverFunction.o
 INCLDIR = -I.
-
-PROGS = server client 
+CLIENTDEPENDANCE = csapp.o mdir
+SERVERDEPENDANCE = csapp.o serverFunction.o
+PROGS = server client mdir
 
 
 all: $(PROGS)
@@ -31,8 +32,16 @@ all: $(PROGS)
 	$(CC) -o $@ $(LDFLAGS) $^ $(LIBS)
 #	$(CC) -o $@ $(LDFLAGS) $(LIBS) $^
 	
+mdir: 
+	-mkdir ./DirClient/
+
 clean:
 	rm -f $(PROGS) *.o
-	rm -f ./DirClient/*
-	rm -f ./DirClient/.*
+	-rm -f ./DirClient/*
+	-rm -f ./DirClient/.*
 
+client: $(CLIENTDEPENDANCE)
+	$(CC) -o $@ $(LDFLAGS) $^ $(LIBS)
+
+server: $(SERVERDEPENDANCE)
+	$(CC) -o $@ $(LDFLAGS) $^ $(LIBS)

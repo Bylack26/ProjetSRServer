@@ -71,15 +71,16 @@ int main(int argc, char **argv){
         Rio_writen(clientfd, log->name, log->tailleNom*sizeof(char));
         Rio_writen(clientfd, &log->lastBloc, sizeof(int));
         recuperePartiel(clientfd, rio, log->name, log->lastBloc);
+        goto recuperation;
     }else{
-        while(command ){
+recuperation:
+            while(command ){
             fprintf(stdout,"Entrez une commande\n");
             if(Fgets(buf, MAXLINE, stdin) != NULL){
                 command = strcmp(buf, BYE);
                 if(command){
                     if(!strcmp(buf, GET)){
                         command = GET_FUNC;
-                        
                         Rio_writen(clientfd, &command, sizeof(char)); 
                         recupereFichier(clientfd, rio);
                     }else{
@@ -125,6 +126,7 @@ int recupereFichier(int clientfd, rio_t rio){
             
             if(sortie < 0){
                 fprintf(stderr,"Impossible d'ecrire en sortie\n");
+                Close(clientfd);
                 exit(1);
             }
             //On crée un fichier de log dans un répertoire caché
@@ -139,11 +141,12 @@ int recupereFichier(int clientfd, rio_t rio){
                 
                 ecritureLog(p->id, nbBloc, fichierServ(buf));
                 //sleep(2);
-                fprintf(stderr, "Bloc ecrit\n");
                 i++;
             }
             clock_t end = clock();
-            remove("./DirClient/.log");
+            if(i == nbBloc){
+                remove("./DirClient/.log");
+            }
             double millis = ((double)end-(double)begin)*1000/CLOCKS_PER_SEC;
             fprintf(stdout, "%d octet(s) transféré en %f milli-secondes (%f Octets/ms)\n",nbOctetReceived, millis, ((nbOctetReceived) / (millis)));
         }
@@ -174,7 +177,6 @@ struct Log * crashed(){
     strcat(logDos, DIR);
     strcat(logDos, LOG);
     int fdLog = open(logDos, O_RDONLY);
-    fprintf(stderr, "fichier = %d\n", fdLog);
 
     //Lecture du fichier log
     if(fdLog != -1){
@@ -223,7 +225,6 @@ void recuperePartiel(int clientfd, rio_t rio, char * nom, int id){
     struct paquet * p = calloc(1, sizeof(struct paquet));
     Rio_readn(rio.rio_fd, &nbBloc, sizeof(int));
     int i = id;
-    fprintf(stderr, "Nombre bloc reprise = %d", nbBloc);
     while(i < nbBloc && Rio_readn(rio.rio_fd, p, sizeof(struct paquet)) > 0){
         
         nbOctetReceived += p->size;

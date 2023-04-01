@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "serverFunction.h"
-#define MAX_NAME_LEN 256
-#define NBPROCMAX 0
+
 
 pid_t tabpid[NBPROCMAX];
 
